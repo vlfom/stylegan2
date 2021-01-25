@@ -13,6 +13,19 @@ import PIL.Image
 import PIL.ImageFont
 import dnnlib
 
+# ----------------------------------------------------------------------------
+
+# Set up ClearML
+
+from clearml import Task, Logger
+
+task = Task.init(project_name=os.environ["CLEARML_PROJECT_NAME"], task_name=os.environ["CLEARML_TASK_NAME"], continue_last_task=True)
+task.connect_configuration('/root/clearml.conf')
+logger = task.get_logger()
+logger.set_default_upload_destination(uri='gs://clearml-bucket-0')
+
+# ----------------------------------------------------------------------------
+
 #----------------------------------------------------------------------------
 # Convenience wrappers for pickle that are able to load data produced by
 # older versions of the code, and from external URLs.
@@ -70,8 +83,13 @@ def convert_to_pil_image(image, drange=[0,1]):
     fmt = 'RGB' if image.ndim == 3 else 'L'
     return PIL.Image.fromarray(image, fmt)
 
-def save_image_grid(images, filename, drange=[0,1], grid_size=None):
+def save_image_grid(images, filename, drange=[0,1], grid_size=None, kimg=None, iteration=None, t1=None, t2=None):
     convert_to_pil_image(create_image_grid(images, grid_size), drange).save(filename)
+
+    # ClearML
+    if iteration is not None:
+        logger.report_image(t1, "{}_kimg={}".format(t2, kimg), iteration=iteration,
+        image=convert_to_pil_image(create_image_grid(images, grid_size), drange))
 
 def apply_mirror_augment(minibatch):
     mask = np.random.rand(minibatch.shape[0]) < 0.5
